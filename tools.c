@@ -28,8 +28,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <openssl/err.h>
-#include <openssl/rand.h>
+#include "crypto/rand.h"
 #include <zlib.h>
 #include <time.h>
 #include <sys/time.h>
@@ -37,14 +36,53 @@
 //#include "interface.h"
 #include "tools.h"
 
-#ifdef __MACH__
+#ifdef __APPLE__
 #include <mach/clock.h>
 #include <mach/mach.h>
 #endif
 
-#ifdef __MACH__
+#ifndef CLOCK_REALTIME
 #define CLOCK_REALTIME 0
 #define CLOCK_MONOTONIC 1
+#endif
+
+#ifdef WIN32
+#include <winsock2.h>
+#include <windows.h>
+#if __MINGW64_VERSION_MAJOR < 8
+/* Starting with MinGW 8.0.0, it already defines this function. */
+int vasprintf(char ** __restrict__ ret,
+                      const char * __restrict__ format,
+                      va_list ap) {
+  int len;
+  /* Get Length */
+  len = _vsnprintf(NULL,0,format,ap);
+  if (len < 0) return -1;
+  /* +1 for \0 terminator. */
+  *ret = malloc(len + 1);
+  /* Check malloc fail*/
+  if (!*ret) return -1;
+  /* Write String */
+  _vsnprintf(*ret,len+1,format,ap);
+  /* Terminate explicitly */
+  (*ret)[len] = '\0';
+  return len;
+}
+#endif
+
+int clock_gettime(int ignored, struct timespec *spec)      
+{
+  __int64 wintime;
+  GetSystemTimeAsFileTime((FILETIME*)&wintime);
+  wintime      -= 116444736000000000;  //1jan1601 to 1jan1970
+  spec->tv_sec  = wintime / 10000000;           //seconds
+  spec->tv_nsec = wintime % 10000000 *100;      //nano-seconds
+  return 0;
+}
+#endif
+
+#ifdef VALGRIND_FIXES
+#include "valgrind/memcheck.h"
 #endif
 
 #define RES_PRE 8
@@ -92,6 +130,10 @@ int tgl_asprintf (char **res, const char *format, ...) {
 }
 
 void tgl_free_debug (void *ptr, int size __attribute__ ((unused))) {
+  if (!ptr) {
+    assert (!size);
+    return;
+  }
   total_allocated_bytes -= size;
   ptr -= RES_PRE;
   if (size != (int)((*(int *)ptr) ^ 0xbedabeda)) {
@@ -118,6 +160,8 @@ void tgl_free_debug (void *ptr, int size __attribute__ ((unused))) {
 }
 
 void tgl_free_release (void *ptr, int size) {
+  total_allocated_bytes -= size;
+  memset (ptr, 0, size);
   free (ptr);
 }
 
@@ -126,11 +170,16 @@ void tgl_free_release (void *ptr, int size) {
 void *tgl_realloc_debug (void *ptr, size_t old_size __attribute__ ((unused)), size_t size) {
   void *p = talloc (size);
   memcpy (p, ptr, size >= old_size ? old_size : size); 
-  tfree (ptr, old_size);
+  if (ptr) {
+    tfree (ptr, old_size);
+  } else {
+    assert (!old_size);
+  }
   return p;
 }
 
 void *tgl_realloc_release (void *ptr, size_t old_size __attribute__ ((unused)), size_t size) {
+  total_allocated_bytes += (size - old_size);
   void *p = realloc (ptr, size);
   ensure_ptr (p);
   return p;
@@ -146,14 +195,12 @@ void *tgl_alloc_debug (size_t size) {
   *(int *)(p + RES_AFTER + 4 + size) = used_blocks;
   blocks[used_blocks ++] = p;
 
-  if (used_blocks - 1 == 24867) {
-    assert (0);
-  }
-  tcheck ();
+  //tcheck ();
   return p + 8;
 }
 
 void *tgl_alloc_release (size_t size) {
+  total_allocated_bytes += size;
   void *p = malloc (size);
   ensure_ptr (p);
   return p;
@@ -179,6 +226,12 @@ char *tgl_strndup (const char *s, size_t n) {
   memcpy (p, s, l);
   p[l] = 0;
   return p;
+}
+
+void *tgl_memdup (const void *s, size_t n) {
+  void *r = talloc (n);
+  memcpy (r, s, n);
+  return r;
 }
 
 
@@ -248,7 +301,7 @@ void tgl_exists_release (void *ptr, int size) {}
 void tgl_check_release (void) {}
 
 void tgl_my_clock_gettime (int clock_id, struct timespec *T) {
-#ifdef __MACH__
+#ifdef __APPLE__
   // We are ignoring MONOTONIC and hope time doesn't go back too often
   clock_serv_t cclock;
   mach_timespec_t mts;
@@ -269,12 +322,17 @@ double tglt_get_double_time (void) {
 }
 
 void tglt_secure_random (void *s, int l) {
-  if (RAND_bytes (s, l) <= 0) {
+  if (TGLC_rand_bytes (s, l) <= 0) {
     /*if (allow_weak_random) {
-      RAND_pseudo_bytes (s, l);
+      TGLC_rand_pseudo_bytes (s, l);
     } else {*/
       assert (0 && "End of random. If you want, you can start with -w");
     //}
+  } else {
+    #ifdef VALGRIND_FIXES
+      VALGRIND_MAKE_MEM_DEFINED (s, l);
+      VALGRIND_CHECK_MEM_IS_DEFINED (s, l);
+    #endif
   }
 }
 
@@ -294,4 +352,7 @@ struct tgl_allocator tgl_allocator_release = {
   .exists = tgl_exists_release
 };
 
+long long tgl_get_allocated_bytes (void) {
+  return total_allocated_bytes;
+}
 struct tgl_allocator *tgl_allocator = &tgl_allocator_release;

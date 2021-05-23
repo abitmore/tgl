@@ -30,13 +30,13 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <sys/fcntl.h>
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <poll.h>
-#include <openssl/rand.h>
+#include "crypto/rand.h"
 #include <arpa/inet.h>
 #ifdef EVENT_V2
 #include <event2/event.h>
@@ -55,6 +55,7 @@
 //#include "mtproto-common.h"
 #include "tree.h"
 #include "tools.h"
+#include "mtproto-client.h"
 
 #ifndef POLLRDHUP
 #define POLLRDHUP 0
@@ -266,7 +267,7 @@ static int my_connect (struct connection *c, const char *host) {
   int v6 = TLS->ipv6_enabled;
   int fd = socket (v6 ? AF_INET6 : AF_INET, SOCK_STREAM, 0);
   if (fd < 0) {
-    vlogprintf (E_ERROR, "Can not create socket: %m\n");
+    vlogprintf (E_ERROR, "Can not create socket: %s\n", strerror(errno));
     start_fail_timer (c);
     return -1;
   }
@@ -320,7 +321,7 @@ struct connection *tgln_create_connection (struct tgl_state *TLS, const char *ho
   
   int fd = my_connect (c, c->ip);
   if (fd < 0) {
-    vlogprintf (E_ERROR, "Can not connect to %s:%d %m\n", host, port);
+    vlogprintf (E_ERROR, "Can not connect to %s:%d %s\n", host, port, strerror(errno));
     tfree (c, sizeof (*c));
     return 0;
   }
@@ -360,14 +361,14 @@ static void restart_connection (struct connection *c) {
     return;
   }
   
-  if (strcmp (c->ip, c->dc->ip)) {
+  /*if (strcmp (c->ip, c->dc->ip)) {
     tfree_str (c->ip);
     c->ip = tstrdup (c->dc->ip);
-  }
+  }*/
   c->last_connect_time = time (0);
   int fd = my_connect (c, c->ip);
   if (fd < 0) {
-    vlogprintf (E_WARNING, "Can not connect to %s:%d %m\n", c->ip, c->port);
+    vlogprintf (E_WARNING, "Can not connect to %s:%d %s\n", c->ip, c->port, strerror(errno));
     start_fail_timer (c);
     return;
   }
@@ -440,7 +441,7 @@ static void try_write (struct connection *c) {
       delete_connection_buffer (b);
     } else {
       if (errno != EAGAIN && errno != EWOULDBLOCK) {
-        vlogprintf (E_NOTICE, "fail_connection: write_error %m\n");
+        vlogprintf (E_NOTICE, "fail_connection: write_error %s\n", strerror(errno));
         fail_connection (c);
         return;
       } else {
@@ -519,7 +520,7 @@ static void try_read (struct connection *c) {
       c->in_tail = b;
     } else {
       if (errno != EAGAIN && errno != EWOULDBLOCK) {
-        vlogprintf (E_NOTICE, "fail_connection: read_error %m\n");
+        vlogprintf (E_NOTICE, "fail_connection: read_error %s\n", strerror(errno));
         fail_connection (c);
         return;
       } else {
@@ -548,6 +549,11 @@ static struct tgl_session *get_session (struct connection *c) {
 
 static void tgln_free (struct connection *c) {
   if (c->ip) { tfree_str (c->ip); }
+  if (c->ping_ev) { event_free (c->ping_ev); }
+  if (c->fail_ev) { event_free (c->fail_ev); }
+  if (c->read_ev) { event_free (c->read_ev); }
+  if (c->write_ev) { event_free (c->write_ev); }
+
   struct connection_buffer *b = c->out_head;
   while (b) {
     struct connection_buffer *d = b;
@@ -560,11 +566,6 @@ static void tgln_free (struct connection *c) {
     b = b->next;
     delete_connection_buffer (d);
   }
-
-  if (c->ping_ev) { event_free (c->ping_ev); }
-  if (c->fail_ev) { event_free (c->fail_ev); }
-  if (c->read_ev) { event_free (c->read_ev); }
-  if (c->write_ev) { event_free (c->write_ev); }
 
   if (c->fd >= 0) { Connections[c->fd] = 0; close (c->fd); }
   tfree (c, sizeof (*c));
