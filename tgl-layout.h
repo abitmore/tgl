@@ -1,4 +1,4 @@
-/* 
+/*
     This file is part of tgl-library
 
     This library is free software; you can redistribute it and/or
@@ -42,39 +42,77 @@
 
 #define TGLMF_CREATE 0x10000
 
-#define TGLPF_CREATED (1 << 8)
-#define TGLPF_CREATE (1 << 16)
-#define TGLPF_HAS_PHOTO (1 << 11)
-#define TGLPF_DELETED (1 << 10)
-#define TGLPF_OFFICIAL (1 << 13)
 
-#define TGLUF_CONTACT 1
-#define TGLUF_MUTUAL_CONTACT 2
-#define TGLUF_BLOCKED 4
-#define TGLUF_SELF 8
+#define TGLPF_CREATED (1 << 0)
+#define TGLPF_CREATE 0x80000000
+#define TGLPF_HAS_PHOTO (1 << 1)
+#define TGLPF_DELETED (1 << 2)
+#define TGLPF_OFFICIAL (1 << 3)
+#define TGLPF_KICKED (1 << 4)
+#define TGLPF_ADMIN (1 << 5)
+#define TGLPF_CREATOR (1 << 6)
+#define TGLPF_LEFT (1 << 7)
+#define TGLPF_DEACTIVATED (1 << 8)
+
+#define TGLUF_CONTACT (1 << 16)
+#define TGLUF_MUTUAL_CONTACT (1 << 17)
+#define TGLUF_BLOCKED (1 << 18)
+#define TGLUF_SELF (1 << 19)
 #define TGLUF_CREATED TGLPF_CREATED
 #define TGLUF_DELETED TGLPF_DELETED
 #define TGLUF_HAS_PHOTO TGLPF_HAS_PHOTO
 #define TGLUF_CREATE TGLPF_CREATE
-#define TGLUF_BOT (1 << 12)
+#define TGLUF_BOT (1 << 20)
+#define TGLUF_OFFICIAL TGLPF_OFFICIAL
+
+#define TGLUF_TYPE_MASK \
+  (TGLUF_CONTACT | TGLUF_MUTUAL_CONTACT | TGLUF_BLOCKED | TGLUF_SELF | TGLUF_CREATED | TGLUF_DELETED | TGLUF_OFFICIAL)
 
 #define TGLCF_CREATED TGLPF_CREATED
 #define TGLCF_CREATE TGLPF_CREATE
 #define TGLCF_HAS_PHOTO TGLPF_HAS_PHOTO
+#define TGLCF_KICKED TGLPF_KICKED
+#define TGLCF_CREATOR TGLPF_CREATOR
+#define TGLCF_ADMIN TGLPF_ADMIN
+#define TGLCF_OFFICIAL TGLPF_OFFICIAL
+#define TGLCF_LEFT TGLPF_LEFT
+#define TGLCF_DEACTIVATED TGLPF_DEACTIVATED
+#define TGLCF_ADMINS_ENABLED (1 << 16)
+
+#define TGLCF_TYPE_MASK \
+  (TGLCF_CREATED | TGLCF_KICKED | TGLCF_CREATOR | TGLCF_ADMIN | TGLCF_OFFICIAL | TGLCF_LEFT | TGLCF_DEACTIVATED | TGLCF_ADMINS_ENABLED)
 
 #define TGLECF_CREATED TGLPF_CREATED
 #define TGLECF_CREATE TGLPF_CREATE
 #define TGLECF_HAS_PHOTO TGLPF_HAS_PHOTO
-#define TGLECF_DELETED TGLPF_DELETED
+#define TGLECF_KICKED TGLPF_KICKED
+#define TGLECF_CREATOR TGLPF_CREATOR
+#define TGLECF_ADMIN TGLPF_ADMIN
+
+#define TGLECF_TYPE_MASK \
+  (TGLECF_CREATED | TGLECF_KICKED | TGLECF_CREATOR | TGLECF_ADMIN)
 
 #define TGLCHF_CREATED TGLPF_CREATED
 #define TGLCHF_CREATE TGLPF_CREATE
 #define TGLCHF_HAS_PHOTO TGLPF_HAS_PHOTO
+#define TGLCHF_KICKED TGLPF_KICKED
+#define TGLCHF_CREATOR TGLPF_CREATOR
+#define TGLCHF_ADMIN TGLPF_ADMIN
 #define TGLCHF_OFFICIAL TGLPF_OFFICIAL
+#define TGLCHF_LEFT TGLPF_LEFT
+#define TGLCHF_DEACTIVATED TGLPF_DEACTIVATED
+#define TGLCHF_BROADCAST (1 << 16)
+#define TGLCHF_EDITOR (1 << 17)
+#define TGLCHF_MODERATOR (1 << 18)
+#define TGLCHF_MEGAGROUP (1 << 19)
 
-#define TGLCHF_DIFF 0x80000000
+#define TGLCHF_TYPE_MASK \
+  (TGLCHF_CREATED | TGLCHF_KICKED | TGLCHF_CREATOR | TGLCHF_ADMIN | TGLCHF_OFFICIAL | TGLCHF_LEFT | TGLCHF_DEACTIVATED | TGLCHF_BROADCAST | TGLCHF_EDITOR | TGLCHF_MODERATOR | TGLCHF_MEGAGROUP)
 
-#define TGL_FLAGS_UNCHANGED 0xffff
+
+#define TGLCHF_DIFF 0x20000000
+
+#define TGL_FLAGS_UNCHANGED 0x40000000
 
 #define TGLDCF_AUTHORIZED 1
 #define TGLDCF_LOGGED_IN 8
@@ -82,9 +120,9 @@
 #define TGL_PERMANENT_ID_SIZE 24
 #pragma pack(push,4)
 
-typedef struct { 
-  int peer_type; 
-  int peer_id; 
+typedef struct {
+  int peer_type;
+  int peer_id;
   long long access_hash;
 } tgl_peer_id_t;
 
@@ -106,7 +144,7 @@ enum tgl_dc_state {
 struct tgl_session {
   struct tgl_dc *dc;
   long long session_id;
-  long long last_msg_id;
+  long long last_msg_id; // See tglmp_encrypt_send_message
   int seq_no;
   int received_messages;
   struct connection *c;
@@ -194,7 +232,7 @@ enum tgl_message_action_type {
   tgl_message_action_chat_edit_title,
   tgl_message_action_chat_edit_photo,
   tgl_message_action_chat_delete_photo,
-  tgl_message_action_chat_add_user,
+  tgl_message_action_chat_add_users,
   tgl_message_action_chat_add_user_by_link,
   tgl_message_action_chat_delete_user,
   tgl_message_action_set_message_ttl,
@@ -210,7 +248,9 @@ enum tgl_message_action_type {
   tgl_message_action_abort_key,
   tgl_message_action_request_key,
   tgl_message_action_accept_key,
-  tgl_message_action_channel_create
+  tgl_message_action_channel_create,
+  tgl_message_action_migrated_to,
+  tgl_message_action_migrated_from
 };
 
 enum tgl_typing_status {
@@ -269,7 +309,7 @@ struct tgl_encr_document {
   int size;
   int key_fingerprint;
   int flags;
-  
+
   unsigned char *key;
   unsigned char *iv;
   int w;
@@ -312,6 +352,7 @@ struct tgl_user {
   int last_read_out;
   long long photo_id;
   struct tgl_photo *photo;
+  void *extra;
   char *first_name;
   char *last_name;
   char *phone;
@@ -320,7 +361,7 @@ struct tgl_user {
   int blocked;
   char *real_first_name;
   char *real_last_name;
-
+  int bot;
   struct tgl_bot_info *bot_info;
 };
 
@@ -337,6 +378,7 @@ struct tgl_channel {
   int last_read_out;
   long long photo_id;
   struct tgl_photo *photo;
+  void *extra;
 
   long long access_hash;
   int date;
@@ -367,7 +409,9 @@ struct tgl_chat {
   struct tgl_file_location photo_small;
   int last_read_in;
   int last_read_out;
+  long long pad;
   struct tgl_photo *photo;
+  void *extra;
   char *title;
   int users_num;
   int user_list_size;
@@ -404,7 +448,11 @@ struct tgl_secret_chat {
   int structure_version;
   struct tgl_file_location photo_big;
   struct tgl_file_location photo_small;
+  int pad1;
+  int pad2;
+  long long pad;
   struct tgl_photo *photo;
+  void *extra;
   int user_id;
   int admin_id;
   int date;
@@ -438,6 +486,10 @@ typedef union tgl_peer {
     struct tgl_file_location photo_big;
     struct tgl_file_location photo_small;
     struct tgl_photo *photo;
+    int last_read_in;
+    int last_read_out;
+    long long photo_id;
+    void *extra;
   };
   struct tgl_user user;
   struct tgl_chat chat;
@@ -479,6 +531,7 @@ struct tgl_message_action {
     int read_cnt;
     int delete_cnt;
     int screenshot_cnt;
+    int channel_id;
     enum tgl_typing_status typing;
     struct {
       int start_seq_no;
@@ -521,7 +574,7 @@ struct tgl_message_media {
       };
       char *caption;
     };
-    
+
     struct tgl_encr_document *encr_document;
     struct tgl_webpage *webpage;
 
@@ -532,7 +585,7 @@ struct tgl_message_media {
       char *last_name;
       int user_id;
     };
-    
+
     struct {
       void *data;
       int data_size;
@@ -547,13 +600,13 @@ struct tgl_message_media {
   };
 };
 
-struct tgl_message_reply_markup {
+typedef struct tgl_message_reply_markup {
   int refcnt;
   int flags;
   int rows;
   int *row_start;
   char **buttons;
-};
+} tgl_message_reply_markup;
 
 typedef struct tgl_message_id {
   unsigned peer_type;

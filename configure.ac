@@ -1,18 +1,22 @@
-AC_PREREQ([2.68])
-AC_INIT([telegram-cli], [1.0])
+AC_PREREQ([2.69])
+LT_PREREQ([2.4.6])
+AC_INIT([telegram-cli],[1.4.0])
+AC_CONFIG_AUX_DIR([build-aux])
+AC_CONFIG_MACRO_DIRS([m4])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADERS([config.h])
 
 m4_include([m4_ax_check_openssl.m4])
 m4_include([m4_ax_check_zlib.m4])
-m4_include([m4-ax_gcc_builtin.m4])
 
 # Checks for programs.
 AC_PROG_CC
+AC_CHECK_TOOL(AR, ar, [AC_MSG_ERROR([No ar found.  Huh?])])
+LT_INIT
 
 # BSD locations for headers and libraries from packages, Linux locations for self-compiled stuff.
-CPPFLAGS="$CPPFLAGS -I/usr/local/include"
-LDFLAGS="$LDFLAGS -L/usr/local/lib"
+CPPFLAGS="$CPPFLAGS -I/usr/include"
+LDFLAGS="$LDFLAGS -L/usr/lib"
 
 # Checks for libraries.
 AC_SEARCH_LIBS([clock_gettime], [rt])
@@ -70,7 +74,13 @@ AC_ARG_ENABLE(valgrind,[  --enable-valgrind	  fixes for correct valgrind work],
   ])
     
 # Checks for header files.
-AC_CHECK_HEADERS([execinfo.h fcntl.h malloc.h netdb.h stdlib.h string.h unistd.h arpa/inet.h mach/mach.h netinet/in.h sys/file.h sys/socket.h termios.h])
+AC_CHECK_HEADERS([fcntl.h malloc.h netdb.h stdlib.h string.h unistd.h arpa/inet.h mach/mach.h netinet/in.h sys/file.h sys/socket.h termios.h])
+
+# FreeBSD needs -lexecinfo
+AC_CHECK_HEADERS([execinfo.h], [tgl_found_execinfo_header=yes; break;])
+AS_IF([test "x$tgl_found_execinfo_header" = "xyes"],
+	[AC_SEARCH_LIBS([backtrace_symbols_fd], [execinfo])])
+
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_SIZE_T
@@ -78,14 +88,9 @@ AC_TYPE_UID_T
 AC_C_INLINE
 
 # Checks for library functions.
-AC_FUNC_MALLOC
-AC_FUNC_REALLOC
-AC_CHECK_FUNCS([alarm endpwent memset memmove mkdir select socket strdup strndup uname])
-
-AX_GCC_BUILTIN(__builtin_bswap32)
+AC_CHECK_FUNCS([alarm endpwent malloc memset memmove mkdir realloc select socket strdup strndup uname])
 
 AC_SUBST(EXTRA_LIBS)
 AC_SUBST(EXTRA_OBJECTS)
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
-

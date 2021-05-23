@@ -33,9 +33,6 @@
 #include <signal.h>
 #include <unistd.h>
 #include <fcntl.h>
-#if defined(__FreeBSD__) || defined(__OpenBSD__)
-#include <sys/endian.h>
-#endif
 #include <sys/types.h>
 #ifdef WIN32
 #include <winsock2.h>
@@ -67,14 +64,6 @@
 #include "auto.h"
 #include "tgl-methods-in.h"
 
-#if defined(__FreeBSD__)
-#define __builtin_bswap32(x) bswap32(x)
-#endif
-
-#if defined(__OpenBSD__)
-#define __builtin_bswap32(x) __swap32gen(x)
-#endif
-
 #include "mtproto-common.h"
 
 #define MAX_NET_RES        (1L << 16)
@@ -82,15 +71,6 @@
 
 static long long generate_next_msg_id (struct tgl_state *TLS, struct tgl_dc *DC, struct tgl_session *S);
 static double get_server_time (struct tgl_dc *DC);
-
-#if !defined(HAVE___BUILTIN_BSWAP32) && !defined(__FreeBSD__) && !defined(__OpenBSD__)
-static inline unsigned __builtin_bswap32(unsigned x) {
-  return ((x << 24) & 0xff000000 ) |
-  ((x << 8) & 0x00ff0000 ) |
-  ((x >> 8) & 0x0000ff00 ) |
-  ((x >> 24) & 0x000000ff );
-}
-#endif
 
 // for statistic only
 static int total_packets_sent;
@@ -698,11 +678,12 @@ static double get_server_time (struct tgl_dc *DC) {
 
 static long long generate_next_msg_id (struct tgl_state *TLS, struct tgl_dc *DC, struct tgl_session *S) {
   long long next_id = (long long) (get_server_time (DC) * (1LL << 32)) & -4;
-  if (next_id <= S->last_msg_id) {
-    next_id = S->last_msg_id  += 4;
+  if (next_id <= TLS->last_msg_id) {
+    next_id = TLS->last_msg_id  += 4;
   } else {
-    S->last_msg_id = next_id;
+    TLS->last_msg_id = next_id;
   }
+  S->last_msg_id = next_id; // See tglmp_encrypt_send_message
   return next_id;
 }
 
@@ -774,7 +755,7 @@ long long tglmp_encrypt_send_message (struct tgl_state *TLS, struct connection *
   assert (l > 0);
   rpc_send_message (TLS, c, &enc_msg, l + UNENCSZ);
 
-  return S->last_msg_id;
+  return S->last_msg_id; // Pray that this was set by generate_next_msg_id somehow
 }
 
 int tglmp_encrypt_inner_temp (struct tgl_state *TLS, struct connection *c, int *msg, int msg_ints, int useful, void *data, long long msg_id) {
@@ -1134,7 +1115,7 @@ static int process_rpc_message (struct tgl_state *TLS, struct connection *c, str
 
   assert (this_server_time >= st - 300 && this_server_time <= st + 30);
   //assert (enc->msg_id > server_last_msg_id && (enc->msg_id & 3) == 1);
-  vlogprintf (E_DEBUG, "received mesage id %016" INT64_PRINTF_MODIFIER "x\n", enc->msg_id);
+  vlogprintf (E_DEBUG, "received message id %016" INT64_PRINTF_MODIFIER "x\n", enc->msg_id);
   //server_last_msg_id = enc->msg_id;
 
   //*(long long *)(longpoll_query + 3) = *(long long *)((char *)(&enc->msg_id) + 0x3c);
@@ -1174,7 +1155,7 @@ static int rpc_execute (struct tgl_state *TLS, struct connection *c, int op, int
   vlogprintf (E_DEBUG, "Response_len = %d\n", Response_len);
   assert (TLS->net_methods->read_in (c, Response, Response_len) == Response_len);
 
-#if !defined(__MACH__) && !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined (__CYGWIN__)
+#if !defined(__APPLE__) && !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined (__CYGWIN__)
 //  setsockopt (c->fd, IPPROTO_TCP, TCP_QUICKACK, (int[]){0}, 4);
 #endif
   int o = DC->state;

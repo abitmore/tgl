@@ -3,6 +3,12 @@
 
 #include "tgl.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void tgl_do_get_terms_of_service (struct tgl_state *TLS, void (*callback)(struct tgl_state *TLS, void *callback_extra, int success, const char *ans), void *callback_extra);
+
 /* {{{ WORK WITH ACCOUNT */
 // sets account password
 // user will be requested to type his current password and new password (twice)
@@ -119,6 +125,8 @@ void tgl_do_export_chat_link (struct tgl_state *TLS, tgl_peer_id_t id, void (*ca
 // joins to secret chat by link (or hash of this link)
 void tgl_do_import_chat_link (struct tgl_state *TLS, const char *link, int link_len, void (*callback)(struct tgl_state *TLS, void *callback_extra, int success), void *callback_extra);
 
+// upgrades chat to channel.
+void tgl_do_upgrade_group (struct tgl_state *TLS, tgl_peer_id_t id, void (*callback)(struct tgl_state *TLS, void *callback_extra, int success), void *callback_extra);
 /* }}} */
 
 /* {{{ WORKING WITH USERS */
@@ -162,6 +170,10 @@ int tgl_do_visualize_key (struct tgl_state *TLS, tgl_secret_chat_id_t id, unsign
 
 // requests creation of secret chat with user id
 void tgl_do_create_secret_chat (struct tgl_state *TLS, tgl_user_id_t id, void (*callback)(struct tgl_state *TLS, void *callback_extra, int success, struct tgl_secret_chat *E), void *callback_extra);
+
+// cancel a working secret chat
+void tgl_do_discard_secret_chat (struct tgl_state *TLS, struct tgl_secret_chat *E, void (*callback)(struct tgl_state *TLS, void *callback_extra, int success, struct tgl_secret_chat *E), void *callback_extra);
+
 /* }}} */
 
 /* {{{ WORKING WITH CHANNELS */
@@ -228,6 +240,12 @@ void tgl_do_messages_mark_read (struct tgl_state *TLS, tgl_peer_id_t id, int max
 // also marks messages from this chat as read
 void tgl_do_get_history (struct tgl_state *TLS, tgl_peer_id_t id, int offset, int limit, int offline_mode, void (*callback)(struct tgl_state *TLS, void *callback_extra, int success, int size, struct tgl_message *list[]), void *callback_extra);
 
+// like tgl_do_get_history, but will fetch any messages between *min_id* and *max_id*
+// when *limit* is too small, the older messages will not be displayed despite being bigger than *min_id*
+// when *max_id* is 0, all messages newer than *min_id* are fetched
+// when *min_id* is 0, all messages older than *max_id* are fetched
+void tgl_do_get_history_range (struct tgl_state *TLS, tgl_peer_id_t id, int min_id, int max_id, int limit, void (*callback)(struct tgl_state *TLS, void *callback_extra, int success, int size, struct tgl_message *list[]), void *callback_extra);
+
 // sends typing event to chat
 // set status=tgl_typing_typing for default typing event
 void tgl_do_send_typing (struct tgl_state *TLS, tgl_peer_id_t id, enum tgl_typing_status status, void (*callback)(struct tgl_state *TLS, void *callback_extra, int success), void *callback_extra);
@@ -284,5 +302,9 @@ char *tglf_extf_fetch (struct tgl_state *TLS, struct paramed_type *T);
 /* {{{ BOT */
 void tgl_do_start_bot (struct tgl_state *TLS, tgl_peer_id_t bot, tgl_peer_id_t chat, const char *str, int str_len, void (*callback)(struct tgl_state *TLS, void *callback_extra, int success), void *callback_extra);
 /* }}} */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

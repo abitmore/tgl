@@ -1,9 +1,25 @@
-This is library that handles telegram api and protocol.
+# Telegram library
+
+This is library that handles Telegram API and protocol.
+
+> This is a fork of [vysheng's repository](https://github.com/vysheng/tgl).
+
+This variant focuses mostly on the use for the [purple plugin](https://github.com/majn/telegram-purple).
+
+If you're looking for client CLI implementation, check [TG repository](https://github.com/vysheng/tg) instead. 
+
+Build status:
+
+| Repository                                             | Status|
+| ------------------------------------------------------ | ----- |
+| [vysheng](https://github.com/vysheng/tgl) (main)       | [![Build Status](https://travis-ci.org/vysheng/tgl.svg)](https://travis-ci.org/vysheng/tgl) |
+| [kenorb-contrib](https://github.com/kenorb-contrib/tgl) | [![Build Status](https://travis-ci.org/kenorb-contrib/tgl.svg)](https://travis-ci.org/kenorb-contrib/tgl) |
+| [majn](https://github.com/majn/tgl) | [![Build Status](https://travis-ci.org/majn/tgl.svg)](https://travis-ci.org/majn/tgl) |
 
 Current versions:
 
-- scheme.tl: Layer 38
-- encrypted_scheme.tl: Layer 23
+- `scheme.tl`: Layer 38
+- `encrypted_scheme.tl`: Layer 23
 
 ### API, Protocol documentation
 
@@ -13,22 +29,18 @@ Documentation for MTproto protocol is available here: https://core.telegram.org/
 
 ### Installation
 
-Clone GitHub Repository
+Clone this GitHub repository with `--recursive` parameter to clone submodules.
 
-     git clone --recursive  https://github.com/vysheng/tgl.git && cd tgl
+     git clone --recursive https://github.com/majn/tgl.git && cd tgl
 
 #### Linux and BSDs
 
 Install libs: openssl, zlib
 if you want to use provided net/timers then install libevent and add --enable-libevent key to configure
 
-You can also avoid the OpenSSL dependency: Install gcrypt (>= 1.60, Debian derivates know it as "libgcrypt20-dev"), and add --disable-openssl to openssl.
+You can also avoid the OpenSSL dependency: Install gcrypt (>= 1.60, Debian derivates know it as "libgcrypt20-dev"), and add --disable-openssl key to configure
 
 Then,
 
      ./configure
      make
-
-### Contacts 
-If you would like to ask a question, you can write to my telegram or to the github (or both). To contact me via telegram, you should use import_card method with argument 000653bf:0738ca5d:5521fbac:29246815:a27d0cda
-

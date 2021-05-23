@@ -4,11 +4,11 @@ CFLAGS=@CFLAGS@
 LDFLAGS=@LDFLAGS@ @OPENSSL_LDFLAGS@
 CPPFLAGS=@CPPFLAGS@ @OPENSSL_INCLUDES@
 DEFS=@DEFS@
-COMPILE_FLAGS=${CFLAGS} ${CPFLAGS} ${CPPFLAGS} ${DEFS} -Wall -Wextra -Werror -Wno-deprecated-declarations -fno-strict-aliasing -fno-omit-frame-pointer -ggdb -Wno-unused-parameter -fPIC
+COMPILE_FLAGS=${CFLAGS} ${CPFLAGS} ${CPPFLAGS} ${DEFS} -Wall -Wextra -Wno-deprecated-declarations -fno-strict-aliasing -fno-omit-frame-pointer -ggdb -Wno-unused-parameter -fPIC -D_FORTIFY_SOURCE=2
 
 EXTRA_LIBS=@LIBS@ @EXTRA_LIBS@ @OPENSSL_LIBS@
 LOCAL_LDFLAGS=-rdynamic -ggdb ${EXTRA_LIBS}
-LINK_FLAGS=${LDFLAGS} ${LOCAL_LDFLAGS}
+LINK_FLAGS=${CFLAGS} ${LDFLAGS} ${LOCAL_LDFLAGS}
 
 DEP=dep
 AUTO=auto
@@ -31,6 +31,24 @@ DEPENDENCE_LIST=${DEPENDENCE}
 
 INCLUDE=-I. -I${srcdir}
 CC=@CC@
+AR=@AR@
+
+# Check if -fstack-protector-strong is supported before enabling it
+STACK_PROTECTOR_UNSUPPORTED = $(shell $(CC) -fstack-protector-strong 2>&1 | grep -c 'stack-protector-strong')
+ifeq "$(STACK_PROTECTOR_UNSUPPORTED)" "0"
+	CFLAGS += -fstack-protector-strong
+endif
+# Check if -frandom-seed is supported before enabling it
+RANDOM_SEED_UNSUPPORTED = $(shell $(CC) -frandom-seed=77e0418a98676b76729b50fe91cc1f250c14fd8f664f8430649487a6f918926d 2>&1 | grep -c 'random-seed')
+ifeq "$(RANDOM_SEED_UNSUPPORTED)" "0"
+	CFLAGS += -frandom-seed=0x$$(sha256sum $< | cut -f1 -d" ")
+endif
+# Check if -ffile-prefix-map is supported before enabling it
+FILE_PREFIX_MAP_UNSUPPORTED = $(shell $(CC) -ffile-prefix-map=/foo/bar/baz=/quux 2>&1 | grep -c 'file-prefix-map')
+ifeq "$(FILE_PREFIX_MAP_UNSUPPORTED)" "0"
+	# FIXME
+	CFLAGS += "-ffile-prefix-map=$(realpath ${srcdir})=tgl"
+endif
 
 .SUFFIXES:
 
@@ -57,7 +75,7 @@ ${TGL_OBJECTS_AUTO}: ${OBJ}/auto/%.o: ${AUTO}/%.c | create_dirs
 	${CC} ${INCLUDE} ${COMPILE_FLAGS} -iquote ${srcdir}/tgl -c -MP -MD -MF ${DEP}/$*.d -MQ ${OBJ}/$*.o -o $@ $<
 
 ${LIB}/libtgl.a: ${TGL_OBJECTS} ${COMMON_OBJECTS} ${TGL_OBJECTS_AUTO}
-	rm -f $@ && ar ruv $@ $^
+	rm -f $@ && ${AR} ruv $@ $^
 
 ${LIB}/libtgl.so: ${TGL_OBJECTS} ${COMMON_OBJECTS} ${TGL_OBJECTS_AUTO}
 	${CC} -shared -o $@ $^ ${LINK_FLAGS}
@@ -97,6 +115,10 @@ distclean:
 	rm -rf ${DIR_LIST} config.h config.log config.status
 
 mime-types.c: mime.types
-	@echo "// DO NOT EDIT! SEE MAKE-TARGET 'gen-mime-types'" > mime-types.c
-# xxd is usually packaged with vim-common
-	xxd -i mime.types >> mime-types.c
+	@echo xxd -i mime.types > mime-types.c
+	@if command -v xxd >/dev/null 2>&1 ; then \
+		xxd -i mime.types > mime-types.c ; \
+	else \
+		echo "# No xxd installed!  Trying to skip ..." ; \
+		test -r $@ ; \
+	fi

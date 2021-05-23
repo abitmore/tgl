@@ -1,26 +1,11 @@
-/*
-    This file is part of tgl-libary/generate
+/* SPDX-FileCopyrightText: © 2014-2015 Vitaly Valtman <mail@vysheng.ru>
+ * SPDX-FileCopyrightText: © 2015-2016 Vaibhav Verma <vaibhav2614@gmail.com>
+ * SPDX-FileCopyrightText: © 2015-2016 Eion Robb <eion@robbmob.com>
+ * SPDX-FileCopyrightText: © 2015-2016 Ben Wiederhake <BenWiederhake@gmx.de>
+ * SPDX-FileCopyrightText: © 2021 Peter J. Mello <admin@petermello.net>
 
-    Tgl-library/generate is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 2 of the License, or
-    (at your option) any later version.
-
-    Tgl-library/generate is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this tgl-library/generate.  If not, see
-   <http://www.gnu.org/licenses/>.
-
-    Copyright Vitaly Valtman 2014-2015
-
-    It is derivative work of VK/KittenPHP-DB-Engine
-   (https://github.com/vk-com/kphp-kdb/) Copyright 2012-2013 Vkontakte Ltd
-              2012-2013 Vitaliy Valtman
-*/
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #define _GNU_SOURCE
 
